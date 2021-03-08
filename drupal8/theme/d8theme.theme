@@ -1,0 +1,88 @@
+<?php
+
+/**
+ * @drupal8 @image
+ * Fields / Get Image URL from field.
+ * Implements HOOK_preprocess_node().
+ */
+function HOOK_preprocess_node(&$vars) {
+  if ($image = File::load($vars['node']->field_image[0]->target_id)) {
+    $heroImageUrl = file_url_transform_relative($image->url());
+  }
+  // Assign card values from node
+  $vars['card_title'] = $vars['node']->getTitle();
+  $vars['card_image_src'] = isset($heroImageUrl) ? $heroImageUrl : '';
+  $vars['card_image_alt'] = $vars['content']['field_image'][0]['#item']->alt;
+  $vars['card_link_url'] = $vars['content']['field_link'][0]['#url']->toString();
+  $vars['card_link_text'] = $vars['content']['field_link'][0]['#title'];
+  $vars['card_date'] = $vars['content']['field_date'][0]['#text'];
+  $vars['card_topic'] = $vars['content']['field_tags'][0]['#title'];
+  $vars['card_summary'] = $vars['content']['body'][0]['#text'];
+}
+
+/**
+ * @drupal8 @image
+ * Load image from field with style.
+ * Implements HOOK_preprocess_node().
+ */
+function HOOK_preprocess_node(&$variables) {
+  if (!empty($variables['content']['field_image'][0])) {
+    $image = $variables['content']['field_image'][0];
+    $path = $image['#item']->entity->getFileUri();
+    $variables['twitter_image'] = ImageStyle::load($image['#image_style'])->buildUrl($path);
+  }
+}
+
+/**
+ * @drupal8 @image
+ * Load node from a block. Get field from node to use in block template.
+ * Implements hook_preprocess_block().
+ */
+function ipart_preprocess_block(&$variables) {
+  $node = \Drupal::routeMatch()->getParameter('node');
+  if (!is_null($node)) {
+    if ($node->bundle() === 'custom_bundle') {
+      if ($node->hasField('field_image')) {
+        $custom_image = $node->get('field_image')->entity;
+        if (!is_null($custom_image)) {
+          $custom_image_img = $custom_image->get('field_media_image')->entity;
+          $img_uri = $custom_image_img->getFileUri();
+          $url = file_create_url($img_uri);
+          $variables['custom_image'] = $url;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * @drupal8 @themesettings
+ * Add cusom fields to Theme settings.
+ * Implements hook_form_system_theme_settings_alter().
+ */
+function HOOK_form_system_theme_settings_alter(&$form) {
+  $form['theme_custom_form'] = [
+    '#type' => 'details',
+    '#title' => 'Custom theme setting accordion',
+    '#weight' => 50,
+    '#open' => TRUE,
+    'custom_field' => [
+      '#type' => 'textfield',
+      '#title' => 'Custom Text Field',
+      '#default_value' => theme_get_setting('custom_field'),
+      '#description' => t('My example field on a custom theme form.'),
+    ]
+  ];
+}
+
+/**
+ * @drupal8 @themesettings
+ * Add cusom fields to Theme settings.
+ * Implements hook_preprocess_page().
+ */
+function ipart_preprocess_page(&$variables) {
+  $custom_url = theme_get_setting('custom_field');
+  $base_path = base_path();
+  $directory = drupal_get_path('theme', 'ipart');
+  $variables['imagesrc'] = $base_path . $directory . $custom_url;
+}
